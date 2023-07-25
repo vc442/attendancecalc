@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Attendance Calculator</title>
+  <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+</head>
+<body>
+  <input type="file" id="fileUpload" />
+  <button onclick="processPdf()">Calculate Attendance</button>
+  <p id="output"></p>
+
+  <script>
+    function processPdf() {
+      const file = document.querySelector('input[type="file"]').files[0];
+      let fileReader = new FileReader();
+      fileReader.onload = function(event) {
+        let typedArray = new Uint8Array(this.result);
+        pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf) {
+          let totalPromises = [];
+          for (let i = 1; i <= pdf.numPages; i++) {
+            totalPromises.push(pdf.getPage(i).then(function(page) {
+              return page.getTextContent().then(function(content) {
+                return content.items.map(function(item) {
+                  return item.str;
+                }).join(' ');
+              });
+            }));
+          }
+          Promise.all(totalPromises).then(function(pagesTexts) {
+            let fullText = pagesTexts.join(' ');
+            let presentMatches = fullText.match(/\d{1,2}:\d{2}:\d{2} (AM|PM) *P/g) || [];
+            let absentMatches = fullText.match(/\d{1,2}:\d{2}:\d{2} (AM|PM) *A/g) || [];
+            let totalPresent = presentMatches.length;
+            let totalClasses = totalPresent + absentMatches.length;
+            let attendancePercentage = (totalPresent / totalClasses) * 100;
+            document.getElementById('output').innerText = `Attendance percentage: ${attendancePercentage.toFixed(2)}%`;
+          });
+        });
+      };
+      fileReader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>
